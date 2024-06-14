@@ -27,3 +27,4 @@ deleteAt n (e:rest) = e : deleteAt (n - 1) rest
 formatTable :: Show a => [[a]] -> String
 formatTable = foldl (\ acc r -> acc ++ join r ++ "\n") ""
     where join = foldl (\acc e -> acc ++ show e ++ "\t") ""
+
