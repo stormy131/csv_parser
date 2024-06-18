@@ -1,3 +1,11 @@
+module CSVLib (
+       Operator(..),
+       DataModifier,
+       readCSV,
+       formatTable,
+       processQuery
+) where
+
 import System.IO
 import Data.List (sortBy)
 import Utils (
@@ -9,12 +17,14 @@ import Utils (
 data Operator a = Select [a] |
                   Where a (a -> Bool) | 
                   OrderBy a  | 
-                  Drop a
+                  Drop a |
+                  Append [[a]] |
+                  Concat [[a]]
 
-class DataFilter f where
+class DataModifier f where
        process :: (Eq a, Ord a) => f a -> [[a]] -> [[a]]
 
-instance DataFilter Operator where
+instance DataModifier Operator where
        process (Select names) all_data@(columns:_) = map (\row -> [row !! i | i <- column_ids]) all_data
               where column_ids = findIndices names columns
 
@@ -27,10 +37,17 @@ instance DataFilter Operator where
        process (Drop column) all_data@(columns:_) = map (deleteAt i) all_data
               where [i] = findIndices [column] columns
 
-processQuery :: (DataFilter b, Ord a) => [[a]] -> [b a] -> [[a]]
+processQuery :: (DataModifier b, Ord a) => [[a]] -> [b a] -> [[a]]
 processQuery = foldl (flip process)
 
--- Processing
+readCSV :: String -> Char -> IO [[String]]
+readCSV file_path separator = do
+       content <- readFile file_path
+       let file_lines = lines content
+       let csv_data = map (`splitBy` separator) file_lines
+       return csv_data
+
+-- Example
 main :: IO ()
 main = do
        print "Input file:"
@@ -39,12 +56,7 @@ main = do
        print "Output file:"
        output_file <- getLine
 
-       print "Data query:"
-       query_str <- getLine
-
-       handle <- openFile input_file ReadMode
-       contents <- hGetContents handle
-       let table = map (`splitBy` ',') $ lines contents
+       table <- readCSV input_file ','
        let q = [Select ["a", "c"], OrderBy "a"]
 
        if null output_file
