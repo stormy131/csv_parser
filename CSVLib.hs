@@ -2,29 +2,29 @@ module CSVLib (
        Operator(..),
        DataModifier,
        readCSV,
+       writeCSV,
        formatTable,
        processQuery
 ) where
 
 import System.IO
+import Utils
 import Data.List (sortBy)
-import Utils (
-       splitBy, 
-       findIndices, 
-       deleteAt, 
-       formatTable)
+import System.Directory (doesFileExist)
 
 data Operator a = Select [a] |
                   Where a (a -> Bool) | 
                   OrderBy a  | 
                   Drop a |
-                  Append [[a]] |
-                  Concat [[a]]
+                  ConcatRows [[a]] |                 -- Concat "tables" along 0 axis (adds rows)
+                  ConcatCols [[a]]                   -- Concat "tables" along 1 axis (adds columns)
 
 class DataModifier f where
-       process :: (Eq a, Ord a) => f a -> [[a]] -> [[a]]
+       process :: (Eq a, Ord a, Show a) => f a -> [[a]] -> [[a]]
 
 instance DataModifier Operator where
+       process _ [] = []
+       
        process (Select names) all_data@(columns:_) = map (\row -> [row !! i | i <- column_ids]) all_data
               where column_ids = findIndices names columns
 
@@ -37,28 +37,27 @@ instance DataModifier Operator where
        process (Drop column) all_data@(columns:_) = map (deleteAt i) all_data
               where [i] = findIndices [column] columns
 
-processQuery :: (DataModifier b, Ord a) => [[a]] -> [b a] -> [[a]]
+       process (ConcatRows (cols_a:rest_a)) (cols_b:rest_b)
+              | cols_a == cols_b = cols_b : rest_b ++ rest_a
+              | otherwise = error "Columns do not match [0-axis concatenation]"
+
+       -- procss (ConcatCols (cols_a:rest_a)) (cols_b:rest_b)
+       --        | 
+
+processQuery :: (DataModifier b, Ord a, Show a) => [[a]] -> [b a] -> [[a]]
 processQuery = foldl (flip process)
 
 readCSV :: String -> Char -> IO [[String]]
 readCSV file_path separator = do
-       content <- readFile file_path
-       let file_lines = lines content
-       let csv_data = map (`splitBy` separator) file_lines
-       return csv_data
+       valid <- doesFileExist file_path
+       if not valid
+              then error $ "Provided filepath \"" ++ file_path ++ "\" is invalid."
+              else do
+                     content <- readFile file_path
+                     let file_lines = lines content
+                     let csv_data = map (`splitBy` separator) file_lines
+                     return csv_data
 
--- Example
-main :: IO ()
-main = do
-       print "Input file:"
-       input_file <- getLine 
-
-       print "Output file:"
-       output_file <- getLine
-
-       table <- readCSV input_file ','
-       let q = [Select ["a", "c"], OrderBy "a"]
-
-       if null output_file
-              then putStrLn $ formatTable $ processQuery table q
-              else writeFile output_file $ formatTable $ processQuery table q
+writeCSV :: String -> String -> [[String]] -> IO ()
+writeCSV file sep values = do
+       writeFile file $ formatTable sep values

@@ -6,6 +6,7 @@ module Utils (
 ) where
 
 import Data.List (elemIndex)
+import Data.Maybe (isNothing)
 
 splitBy :: String -> Char -> [String]
 splitBy [] _ = [""]
@@ -15,15 +16,18 @@ splitBy (x:xs) delim
     where
         rest = splitBy xs delim
 
-findIndices :: Eq a => [a] -> [a] -> [Int]
+findIndices :: (Eq a, Show a) => [a] -> [a] -> [Int]
 findIndices [] _ = []
-findIndices (e:rest) list = idx : findIndices rest list
+findIndices (e:rest) list
+    | isNothing $ elemIndex e list = error $ "Column " ++ show e ++ " is not available "
+    | otherwise = idx : findIndices rest list
     where Just idx = elemIndex e list
 
 deleteAt :: Int -> [a] -> [a]
 deleteAt 0 (_:rest) = rest
 deleteAt n (e:rest) = e : deleteAt (n - 1) rest
 
-formatTable :: Show a => [[a]] -> String
-formatTable = foldl (\ acc r -> acc ++ join r ++ "\n") ""
-    where join = foldl (\acc e -> acc ++ show e ++ "\t") ""
+-- Internally, data wil always be in String format
+formatTable :: String -> [[String]] -> String
+formatTable separator = foldl (\acc r -> acc ++ join r ++ "\n") ""
+    where join = foldl1 (\acc e -> acc ++ separator ++ e)
