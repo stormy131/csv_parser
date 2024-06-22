@@ -19,8 +19,8 @@ data Operator a = Select [a] |
                   ConcatRows [[a]] |                 -- Concat "tables" along 0 axis (adds rows)
                   ConcatCols [[a]]                   -- Concat "tables" along 1 axis (adds columns)
 
-class DataModifier f where
-       process :: (Eq a, Ord a, Show a) => f a -> [[a]] -> [[a]]
+class DataModifier operator where
+       process :: (Eq a, Ord a, Show a) => operator a -> [[a]] -> [[a]]
 
 instance DataModifier Operator where
        process _ [] = []
@@ -41,8 +41,8 @@ instance DataModifier Operator where
               | cols_a == cols_b = cols_b : rest_b ++ rest_a
               | otherwise = error "Columns do not match [0-axis concatenation]"
 
-       -- procss (ConcatCols (cols_a:rest_a)) (cols_b:rest_b)
-       --        | 
+       process (ConcatCols data_a) data_b = map (uncurry (++)) overlap
+              where overlap = zip data_b data_a
 
 processQuery :: (DataModifier b, Ord a, Show a) => [[a]] -> [b a] -> [[a]]
 processQuery = foldl (flip process)
@@ -58,6 +58,6 @@ readCSV file_path separator = do
                      let csv_data = map (`splitBy` separator) file_lines
                      return csv_data
 
-writeCSV :: String -> String -> [[String]] -> IO ()
+writeCSV :: String -> Char -> [[String]] -> IO ()
 writeCSV file sep values = do
        writeFile file $ formatTable sep values

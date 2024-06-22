@@ -28,6 +28,6 @@ deleteAt 0 (_:rest) = rest
 deleteAt n (e:rest) = e : deleteAt (n - 1) rest
 
 -- Internally, data wil always be in String format
-formatTable :: String -> [[String]] -> String
+formatTable :: Char -> [[String]] -> String
 formatTable separator = foldl (\acc r -> acc ++ join r ++ "\n") ""
-    where join = foldl1 (\acc e -> acc ++ separator ++ e)
+    where join = foldl1 (\acc e -> acc ++ (separator : e))
